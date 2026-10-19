@@ -86,6 +86,8 @@
     background:#0f172a; color:#fff; padding:14px 20px; border-radius:12px; font-weight:600;
     transition:transform .25s ease; z-index:10; box-shadow:0 10px 30px rgba(0,0,0,.4); max-width:90vw; text-align:center}
   .toast.show{transform:translateX(-50%) translateY(0)}
+  .spin{width:36px;height:36px;border:4px solid #a7f3d0;border-top-color:var(--green);border-radius:50%;animation:gira .8s linear infinite}
+  @keyframes gira{to{transform:rotate(360deg)}}
   footer{color:#64748b; text-align:center; font-size:12px; margin-top:18px}
 </style>
 </head>
@@ -128,6 +130,13 @@
     </div>
   </section>
 
+  <!-- ===================== ABRINDO (redirecionamento) ===================== -->
+  <section class="card hidden" id="viewAbrindo" style="text-align:center">
+    <div class="icon"><div class="spin"></div></div>
+    <h1>Abrindo sua verificação facial…</h1>
+    <p class="lead" style="margin-bottom:0">Aguarde um instante.</p>
+  </section>
+
   <!-- ===================== LINK INVÁLIDO ===================== -->
   <section class="card hidden" id="viewInvalido">
     <h1>Link incompleto</h1>
@@ -153,7 +162,7 @@
         <button class="btn-sec" id="btnCopiarGerado" type="button">Copiar</button>
         <a class="btn-sec" id="btnWhats" href="#" target="_blank" rel="noopener">Enviar no WhatsApp</a>
       </div>
-      <button class="btn-sec" id="btnTestar" type="button">👁️ Ver como o cliente vê</button>
+      <button class="btn-sec" id="btnTestar" type="button">👁️ Conferir (sem abrir a facial)</button>
     </div>
   </section>
 
@@ -169,6 +178,9 @@ const CONFIG = {
   // Só aceita links destes domínios. Isso impede que alguém use a página
   // do Ivo para mandar pessoas a sites falsos (golpe).
   dominiosPermitidos: ['cadastro.unico.app'],
+  // true  = o cliente toca no link e cai DIRETO na facial da Unico.
+  // false = o cliente vê primeiro a tela com o botão verde e as instruções.
+  redirecionarDireto: true,
   mensagemWhats: 'Olá! Para concluir sua emissão, preciso que faça a verificação facial. É só tocar no link abaixo e depois no botão verde:\n\n'
 };
 
@@ -224,7 +236,7 @@ function baseURL(){ return location.origin + location.pathname; }
 function iniciar(){
   $('brand').innerHTML = CONFIG.nomeNegocio.replace(/(\S+)$/, '<b>$1</b>');
   $('rodape').textContent = CONFIG.nomeNegocio + ' · atendimento pelo WhatsApp';
-  ['viewCliente','viewInvalido','viewGerador'].forEach(v=>$(v).classList.add('hidden'));
+  ['viewCliente','viewAbrindo','viewInvalido','viewGerador'].forEach(v=>$(v).classList.add('hidden'));
 
   const cod = location.hash.slice(1);
   if (!cod){ $('viewGerador').classList.remove('hidden'); return; }
@@ -233,8 +245,22 @@ function iniciar(){
   try{ destino = decodificar(cod); }catch(e){}
   if (!linkValido(destino)){ $('viewInvalido').classList.remove('hidden'); return; }
 
-  $('viewCliente').classList.remove('hidden');
   $('btnAbrir').href = destino;
+  const soVisualizar = new URLSearchParams(location.search).has('ver');
+
+  if (CONFIG.redirecionarDireto && !soVisualizar){
+    // Vai direto para a Unico. "replace" não deixa esta página no histórico,
+    // então o botão Voltar não fica preso num vaivém.
+    $('viewAbrindo').classList.remove('hidden');
+    location.replace(destino);
+    // Plano B: se em 3s o celular ainda não saiu daqui, mostra o botão verde.
+    setTimeout(()=>{
+      $('viewAbrindo').classList.add('hidden');
+      $('viewCliente').classList.remove('hidden');
+    }, 3000);
+  } else {
+    $('viewCliente').classList.remove('hidden');
+  }
   $('btnCopiarCliente').onclick = async ()=>{
     const ok = await copiar(destino);
     toast(ok ? 'Link copiado! Cole no navegador (Chrome).' : 'Não consegui copiar. Toque no botão verde.');
@@ -260,7 +286,9 @@ $('btnGerar').onclick = ()=>{
   $('linkGerado').textContent = gerado;
   $('btnWhats').href = 'https://wa.me/?text=' + encodeURIComponent(CONFIG.mensagemWhats + gerado);
   $('btnCopiarGerado').onclick = async ()=> toast((await copiar(gerado)) ? 'Link copiado!' : 'Não consegui copiar.');
-  $('btnTestar').onclick = ()=> window.open(gerado, '_blank');
+  // "?ver=1" mostra a tela sem redirecionar, para o Ivo conferir
+  // sem abrir (e gastar) a facial do cliente.
+  $('btnTestar').onclick = ()=> window.open(baseURL() + '?ver=1#' + codificar(link), '_blank');
   $('resultado').classList.remove('hidden');
   msg.textContent = 'Pronto! Envie o link abaixo para o cliente.'; msg.classList.add('ok');
 };
