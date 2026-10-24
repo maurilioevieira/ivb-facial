@@ -126,7 +126,7 @@
 
     <div class="safe">
       <span aria-hidden="true">🔒</span>
-      <span>A verificação é feita no site oficial da <b>Unico</b> (cadastro.unico.app). Ninguém vai pedir senha ou dados do seu cartão.</span>
+      <span>Link enviado pelo seu atendente. Ninguém vai pedir senha ou dados do seu cartão.</span>
     </div>
   </section>
 
@@ -146,10 +146,10 @@
   <!-- ===================== TELA DO IVO (GERADOR) ===================== -->
   <section class="card hidden" id="viewGerador">
     <h1>Gerar link de facial</h1>
-    <p class="lead">Cole o link da Unico. O sistema gera um link novo que chega no WhatsApp do cliente <b>sem o botão de Pix</b>.</p>
+    <p class="lead">Cole o link da facial. O sistema gera um link novo que chega no WhatsApp do cliente <b>sem o botão de Pix</b>.</p>
 
-    <label for="entrada">Link da Unico</label>
-    <textarea id="entrada" placeholder="https://cadastro.unico.app/process/..."></textarea>
+    <label for="entrada">Link da facial</label>
+    <textarea id="entrada" placeholder="https://..."></textarea>
     <button class="btn-sec" id="btnColar" type="button">📋 Colar da área de transferência</button>
     <div class="msg" id="msg"></div>
 
@@ -177,8 +177,7 @@ const CONFIG = {
   nomeNegocio: 'IVB Viagens',                 // aparece no topo das páginas
   // Só aceita links destes domínios. Isso impede que alguém use a página
   // do Ivo para mandar pessoas a sites falsos (golpe).
-  dominiosPermitidos: ['cadastro.unico.app'],
-  // true  = o cliente toca no link e cai DIRETO na facial da Unico.
+  // true  = o cliente toca no link e cai DIRETO no link original.
   // false = o cliente vê primeiro a tela com o botão verde e as instruções.
   redirecionarDireto: true,
   mensagemWhats: 'Olá! Para concluir sua emissão, preciso que faça a verificação facial. É só tocar no link abaixo:\n\n'
@@ -202,12 +201,14 @@ function decodificar(cod){
 function linkValido(texto){
   try{
     const u = new URL(texto.trim());
-    return u.protocol === 'https:' && CONFIG.dominiosPermitidos.includes(u.hostname);
+    // Aceita qualquer endereço web (http ou https). Bloqueia só coisas
+    // que não são sites, como "javascript:", que poderiam rodar código.
+    return u.protocol === 'https:' || u.protocol === 'http:';
   }catch(e){ return false; }
 }
 function extrairLink(texto){
   // Aceita o texto colado com outras palavras em volta
-  const m = texto.match(/https:\/\/[^\s]+/);
+  const m = texto.match(/https?:\/\/[^\s]+/);
   return m ? m[0] : texto.trim();
 }
 
@@ -249,7 +250,7 @@ function iniciar(){
   const soVisualizar = new URLSearchParams(location.search).has('ver');
 
   if (CONFIG.redirecionarDireto && !soVisualizar){
-    // Vai direto para a Unico. "replace" não deixa esta página no histórico,
+    // Vai direto para o link original. "replace" não deixa esta página no histórico,
     // então o botão Voltar não fica preso num vaivém.
     $('viewAbrindo').classList.remove('hidden');
     location.replace(destino);
@@ -277,9 +278,9 @@ $('btnColar').onclick = async ()=>{
 $('btnGerar').onclick = ()=>{
   const msg = $('msg'); msg.className = 'msg';
   const link = extrairLink($('entrada').value);
-  if (!link){ msg.textContent = 'Cole o link da Unico no campo acima.'; msg.classList.add('err'); return; }
+  if (!link){ msg.textContent = 'Cole o link no campo acima.'; msg.classList.add('err'); return; }
   if (!linkValido(link)){
-    msg.textContent = 'Esse não parece um link da Unico (cadastro.unico.app). Confira e tente de novo.';
+    msg.textContent = 'Isso não parece um link. Ele precisa começar com https:// — confira e tente de novo.';
     msg.classList.add('err'); $('resultado').classList.add('hidden'); return;
   }
   const gerado = baseURL() + '#' + codificar(link);
